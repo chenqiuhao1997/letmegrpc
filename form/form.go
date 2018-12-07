@@ -458,16 +458,16 @@ func getMessage(f *descriptor.FieldDescriptorProto, fileDescriptorSet *descripto
 	return fileDescriptorSet.GetMessage(packageName, messageName)
 }
 
-func BuilderMap(visited map[string]struct{}, fieldname string, repeated bool, msg *descriptor.DescriptorProto, fileDescriptorSet *descriptor.FileDescriptorSet) []string {
-	s := []string{`"` + typ(fieldname, repeated, msg) + `": build` + typ(fieldname, repeated, msg) + `(emptyIfNull(null)),`}
+func BuilderMap(visited map[string]struct{}, fieldname string, repeated bool, msg *generator.Descriptor, g *generator.Generator) []string {
+	s := []string{`"` + typ(fieldname, repeated, msg.DescriptorProto) + `": build` + typ(fieldname, repeated, msg.DescriptorProto) + `(emptyIfNull(null)),`}
 	for _, f := range msg.GetField() {
 		if !f.IsMessage() {
 			continue
 		}
-		fieldMsg := getMessage(f, fileDescriptorSet)
+		fieldMsg := g.ObjectNamed(f.GetTypeName()).(*generator.Descriptor)
 		if _, ok := visited[msg.GetName()+"."+f.GetName()]; !ok {
 			visited[msg.GetName()+"."+f.GetName()] = struct{}{}
-			s = append(s, BuilderMap(visited, f.GetName(), f.IsRepeated(), fieldMsg, fileDescriptorSet)...)
+			s = append(s, BuilderMap(visited, f.GetName(), f.IsRepeated(), fieldMsg, g)...)
 		}
 	}
 	return s
@@ -745,7 +745,7 @@ func CreateCustom(methodName, packageName, messageName string, g *generator.Gene
 	<script>`
 	text += Header
 	text += `var nodeFactory = {` + strings.Join(BuilderMap(make(map[string]struct{}),
-		"RootKeyword", false, msg.DescriptorProto, g.AllFiles()), "\n") + `}
+		"RootKeyword", false, msg, g), "\n") + `}
 	`
 	text += Builder(make(map[string]struct{}), true, "RootKeyword", "", false, msg, g, proto3, buildField)
 	text += Init(methodName, "RootKeyword", false, msg.DescriptorProto)
